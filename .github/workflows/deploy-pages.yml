@@ -52,7 +52,7 @@ jobs:
           echo "build_dir=$BUILD_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ steps.prepare.outputs.build_dir }}
 
