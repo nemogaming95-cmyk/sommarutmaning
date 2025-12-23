@@ -22,7 +22,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build production files
         run: npm run build
@@ -30,17 +30,13 @@ jobs:
       - name: Prepare Pages artifact (add .nojekyll + SPA fallback)
         run: |
           BUILD_DIR=dist
+          # If your project outputs to "build" (CRA), change the line above to: BUILD_DIR=build
           if [ -d "$BUILD_DIR" ]; then
             touch "$BUILD_DIR/.nojekyll"
-            cat > "$BUILD_DIR/404.html" <<'HTML'
-<!doctype html>
-<meta charset="utf-8"/>
-<title>Redirecting…</title>
-<meta http-equiv="refresh" content="0; URL=/" />
-<script>location.replace('/')</script>
-HTML
+            # Create a minimal 404.html that redirects to the SPA entrypoint
+            printf '%s\n' '<!doctype html>' '<meta charset="utf-8"/>' '<title>Redirecting…</title>' '<meta http-equiv="refresh" content="0; URL=/" />' "<script>location.replace('/')</script>" > "$BUILD_DIR/404.html"
           else
-            echo "Build folder '$BUILD_DIR' not found"
+            echo "Build folder '$BUILD_DIR' not found" >&2
             exit 1
           fi
 
@@ -48,6 +44,7 @@ HTML
         uses: actions/upload-pages-artifact@v1
         with:
           path: ./dist
+          # If you changed BUILD_DIR to build, update the path above to: ./build
 
   deploy:
     needs: build
