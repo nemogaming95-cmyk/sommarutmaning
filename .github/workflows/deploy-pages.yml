@@ -1,17 +1,18 @@
-name: Build and deploy (Vite) to GitHub Pages
+# .github/workflows/deploy-pages.yml
+name: Build and deploy to GitHub Pages
 
 on:
   push:
     branches: [ main ]
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,32 +28,33 @@ jobs:
       - name: Build production files
         run: npm run build
 
-      - name: Prepare Pages artifact (add .nojekyll + SPA fallback)
+      - name: Prepare Pages artifact (detect build folder, add .nojekyll + 404)
+        id: prepare
         run: |
-          BUILD_DIR=dist
-          # If your project outputs to "build" (CRA), change the line above to: BUILD_DIR=build
-          if [ -d "$BUILD_DIR" ]; then
-            touch "$BUILD_DIR/.nojekyll"
-            # Create a minimal 404.html that redirects to the SPA entrypoint
-            printf '%s\n' '<!doctype html>' '<meta charset="utf-8"/>' '<title>Redirecting…</title>' '<meta http-equiv="refresh" content="0; URL=/" />' "<script>location.replace('/')</script>" > "$BUILD_DIR/404.html"
+          set -e
+          if [ -d "dist" ]; then
+            BUILD_DIR="dist"
+          elif [ -d "build" ]; then
+            BUILD_DIR="build"
           else
-            echo "Build folder '$BUILD_DIR' not found" >&2
+            echo "No build output found (dist/ or build/). Listing repo root for debugging:" >&2
+            ls -la
             exit 1
           fi
+
+          echo "Detected build directory: $BUILD_DIR"
+
+          # Create .nojekyll and a relative SPA 404 fallback (use ./ so it works for project pages)
+          touch "$BUILD_DIR/.nojekyll"
+          printf '%s\n' '<!doctype html>' '<meta charset="utf-8"/>' '<title>Redirecting…</title>' '<meta http-equiv="refresh" content="0; URL=./" />' "<script>location.replace('./')</script>" > "$BUILD_DIR/404.html"
+
+          # Export detected build dir to subsequent steps
+          echo "build_dir=$BUILD_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v1
         with:
-          path: ./dist
-          # If you changed BUILD_DIR to build, update the path above to: ./build
+          path: ${{ steps.prepare.outputs.build_dir }}
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-
-    steps:
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v1
