@@ -1,0 +1,61 @@
+name: Build and deploy (Vite) to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production files
+        run: npm run build
+
+      - name: Prepare Pages artifact (add .nojekyll + SPA fallback)
+        run: |
+          BUILD_DIR=dist
+          if [ -d "$BUILD_DIR" ]; then
+            touch "$BUILD_DIR/.nojekyll"
+            cat > "$BUILD_DIR/404.html" <<'HTML'
+<!doctype html>
+<meta charset="utf-8"/>
+<title>Redirecting…</title>
+<meta http-equiv="refresh" content="0; URL=/" />
+<script>location.replace('/')</script>
+HTML
+          else
+            echo "Build folder '$BUILD_DIR' not found"
+            exit 1
+          fi
+
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v1
